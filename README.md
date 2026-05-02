@@ -2,6 +2,8 @@
 
 A Foxglove custom panel extension that displays real-time network monitoring data published by the ROS 2 [ping_monitor](https://github.com/NuTech-R/ping_monitor) node.
 
+![](docs/image.png)
+
 ## Features
 
 - **Connection status** — Color-coded display of CONNECTED / DISCONNECTED / STALE / NO DATA
