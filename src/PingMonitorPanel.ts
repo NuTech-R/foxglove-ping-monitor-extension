@@ -16,7 +16,6 @@ function statusColor(status: ConnectionStatus): string {
   switch (status) {
     case "CONNECTED": return "#22c55e";
     case "DISCONNECTED": return "#ef4444";
-    case "STALE": return "#eab308";
     case "NO DATA": return "#9ca3af";
   }
 }
@@ -42,7 +41,8 @@ function getConnectionStatus(
   isStale: boolean,
 ): ConnectionStatus {
   if (latency == undefined && packetLoss == undefined) return "NO DATA";
-  if (isStale) return "STALE";
+  // メッセージ自体が途絶した場合も操縦者にとっては切断と同じ
+  if (isStale) return "DISCONNECTED";
   if (packetLoss != undefined && packetLoss >= 100) return "DISCONNECTED";
   if (packetLoss != undefined && packetLoss === 0) return "CONNECTED";
   if (latency != undefined && latency >= 0) return "CONNECTED";

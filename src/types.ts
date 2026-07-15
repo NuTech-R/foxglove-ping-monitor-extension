@@ -12,7 +12,7 @@ export interface Float32Message {
 }
 
 /** 接続ステータスの種類 */
-export type ConnectionStatus = "CONNECTED" | "DISCONNECTED" | "NO DATA" | "STALE";
+export type ConnectionStatus = "CONNECTED" | "DISCONNECTED" | "NO DATA";
 
 /** デフォルト設定 */
 export const DEFAULT_STATE: PingMonitorState = {

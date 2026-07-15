@@ -4,7 +4,7 @@
   "description": "Real-time ping latency and packet loss monitor for ROS 2 ping_monitor node",
   "publisher": "robohase",
   "homepage": "",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "license": "UNLICENSED",
   "main": "./dist/extension.js",
   "keywords": [],
