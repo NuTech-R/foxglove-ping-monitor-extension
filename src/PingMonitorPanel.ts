@@ -50,54 +50,6 @@ function getConnectionStatus(
   return "NO DATA";
 }
 
-// ---------- スパークライン SVG 生成 ----------
-
-function buildSparklineSvg(data: number[], width: number, height: number, isDark: boolean): string {
-  if (data.length < 2) {
-    const fill = isDark ? "#616161" : "#9ca3af";
-    return `<svg width="${width}" height="${height}"><text x="${width / 2}" y="${height / 2}" text-anchor="middle" dominant-baseline="middle" fill="${fill}" font-size="11">Waiting for data...</text></svg>`;
-  }
-
-  const validValues = data.filter((v) => v >= 0);
-  const maxVal = validValues.length > 0 ? Math.max(...validValues, 1) : 1;
-  const pad = 4;
-  const innerH = height - pad * 2;
-  const stepX = (width - pad * 2) / (data.length - 1);
-  const lineColor = isDark ? "#4fc3f7" : "#3b82f6";
-  const gridColor = isDark ? "#2e2e2e" : "#e5e7eb";
-
-  let svg = `<svg width="${width}" height="${height}" style="display:block">`;
-  // グリッド
-  for (const frac of [0, 0.5, 1]) {
-    const y = (pad + innerH * frac).toFixed(1);
-    svg += `<line x1="${pad}" y1="${y}" x2="${width - pad}" y2="${y}" stroke="${gridColor}" stroke-width="0.5"/>`;
-  }
-
-  // パスと失敗ポイント
-  let path = "";
-  let dots = "";
-  for (let i = 0; i < data.length; i++) {
-    const x = pad + i * stepX;
-    const v = data[i]!;
-    if (v < 0) {
-      if (path.length > 0) {
-        svg += `<path d="${path}" fill="none" stroke="${lineColor}" stroke-width="1.5"/>`;
-        path = "";
-      }
-      dots += `<circle cx="${x.toFixed(1)}" cy="${(pad + innerH * 0.5).toFixed(1)}" r="2" fill="#ef4444"/>`;
-    } else {
-      const y = pad + innerH - (v / maxVal) * innerH;
-      path += path.length === 0 ? `M${x.toFixed(1)},${y.toFixed(1)}` : ` L${x.toFixed(1)},${y.toFixed(1)}`;
-    }
-  }
-  if (path.length > 0) {
-    svg += `<path d="${path}" fill="none" stroke="${lineColor}" stroke-width="1.5"/>`;
-  }
-  svg += dots;
-  svg += `</svg>`;
-  return svg;
-}
-
 // ---------- DOM 構築 ----------
 
 function el<K extends keyof HTMLElementTagNameMap>(
@@ -181,13 +133,6 @@ export function initPingMonitorPanel(context: PanelExtensionContext): () => void
   });
   container.appendChild(statsCard);
 
-  // スパークラインカード
-  const sparkCard = el("div", { borderRadius: "8px", padding: "8px" });
-  const sparkLabel = el("div", { fontSize: "11px", marginBottom: "4px" });
-  const sparkContainer = el("div");
-  sparkCard.append(sparkLabel, sparkContainer);
-  container.appendChild(sparkCard);
-
   // ---------- テーマ適用 ----------
   function applyTheme(): void {
     const bg = isDark ? "#121212" : "#ffffff";
@@ -203,9 +148,6 @@ export function initPingMonitorPanel(context: PanelExtensionContext): () => void
     latencyLabel.style.color = muted;
     statsCard.style.background = cardBg;
     statsCard.style.border = border;
-    sparkCard.style.background = cardBg;
-    sparkCard.style.border = border;
-    sparkLabel.style.color = muted;
 
     for (const s of statEls) {
       s.label.style.color = muted;
@@ -273,10 +215,6 @@ export function initPingMonitorPanel(context: PanelExtensionContext): () => void
     statEls[2]!.value.textContent = stats ? `${stats.max.toFixed(1)} ms` : "--";
     statEls[3]!.value.textContent = lossRate != undefined ? `${lossRate.toFixed(1)}%` : "--";
     statEls[3]!.value.style.color = lossRate != undefined && lossRate > 0 ? "#ef4444" : "";
-
-    // スパークライン
-    sparkLabel.textContent = `LATENCY HISTORY (${latencyHistory.length}/${state.historySize})`;
-    sparkContainer.innerHTML = buildSparklineSvg(latencyHistory, 320, 60, isDark);
   }
 
   // ---------- Settings ----------
@@ -301,13 +239,19 @@ export function initPingMonitorPanel(context: PanelExtensionContext): () => void
     context.subscribe(subs);
   }
 
-  // ---------- Stale タイマー ----------
+  // ---------- 無通信タイマー ----------
+  // メッセージが途絶している間は、ノードの代わりにロス100%のサンプルを刻む。
+  // (トランスポートごと死ぬとノードのloss=100すら届かないため、統計が凍結しないように)
   const staleTimer = setInterval(() => {
     if (lastMsgTime > 0 && Date.now() - lastMsgTime > state.staleTimeoutMs) {
-      if (!isStale) {
-        isStale = true;
-        updateUI();
-      }
+      isStale = true;
+      latency = -1;
+      packetLoss = 100;
+      latencyHistory.push(-1);
+      while (latencyHistory.length > state.historySize) latencyHistory.shift();
+      lossHistory.push(100);
+      while (lossHistory.length > state.historySize) lossHistory.shift();
+      updateUI();
     }
   }, 500);
 
